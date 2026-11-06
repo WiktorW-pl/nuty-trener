@@ -16,6 +16,7 @@
     :root { --bg: #17181b; --fg: #ececee; --muted: #9a9aa2; --card: #222428; --line: #34363c; }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { height: 100%; }
   body {
     margin: 0; padding: 12px; overflow: hidden; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; background: var(--bg); color: var(--fg);
@@ -63,12 +64,27 @@
   #songName { flex: none; height: 56px; line-height: 56px; text-align: center; font-size: 42px; font-weight: 700; color: var(--hint); white-space: nowrap; overflow: hidden; }
   #songTip { flex: none; height: 26px; margin-top: -6px; text-align: center; font-size: 18px; font-weight: 600; white-space: nowrap; overflow: hidden; }
   main:not(.scale) #songTip { display: none; }
-  #stage { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  #stage { flex: 1.6 1 0; min-height: 0; display: flex; flex-direction: column; }
+  /* Pięciolinia z bieżącym i następnym taktem; dzieli wysokość z nutami spadającymi na klawisze. */
+  #score { position: relative; flex: 1 1 0; min-height: 80px; max-height: 300px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; }
+  #score svg { position: absolute; inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); }
   #roll { position: relative; flex: 1; min-height: 120px; overflow: hidden; background: var(--paper); border: 1px solid var(--line); border-bottom: 0; border-radius: 12px 12px 0 0; }
   #roll svg { position: absolute; inset: 0; width: 100%; height: 100%; }
   #roll p { margin: 0; padding: 40px 16px; text-align: center; color: #6b6b70; }
   #rollNotes { transition: transform .2s ease-out; }
   #songKeys { flex: none; height: clamp(90px, 20vh, 170px); }
+  /* Nauka utworu: fragment w pętli i mapa taktów; kolor taktu to liczba czystych przejść (3 = opanowany). */
+  #frag, #fragLen, #listenBox { display: flex; align-items: center; gap: 4px; }
+  #fragText { min-width: 5.5em; text-align: center; font-variant-numeric: tabular-nums; }
+  #tempo { font: inherit; font-size: 13px; padding: 2px 4px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--fg); }
+  #bars { flex: none; display: flex; gap: 2px; height: 24px; }
+  #bars button { flex: 1 1 0; min-width: 0; padding: 0; border: 0; border-radius: 3px; background: var(--line); color: var(--muted); font-size: 10px; cursor: pointer; overflow: hidden; }
+  #bars .m1 { background: color-mix(in srgb, var(--ok) 35%, var(--line)); color: var(--fg); }
+  #bars .m2 { background: color-mix(in srgb, var(--ok) 65%, var(--line)); color: #fff; }
+  #bars .m3 { background: var(--ok); color: #fff; }
+  #bars .na { opacity: .35; }
+  #bars .in { box-shadow: inset 0 -4px 0 var(--hint); }
+  #bars .now { outline: 2px solid var(--fg); outline-offset: -2px; }
   #songKeys svg { display: block; width: 100%; height: 100%; }
   main:not(.live) #live, main:not(.song):not(.scale) #song { display: none; }
   /* Zakładka "Ćwiczenia" korzysta z widoku utworu: zamiast pliku ma wybór ćwiczenia i liczby oktaw. */
@@ -126,6 +142,9 @@
     #scaleHelp { display: none; }
     #songName { height: 36px; line-height: 36px; font-size: 26px; }
     #songTip { height: 20px; margin-top: 0; font-size: 14px; }
+    #bars { height: 20px; gap: 1px; }
+    #score { min-height: 64px; }
+    #bars button { font-size: 0; } /* numery nie mieszczą się w wąskich polach; takt widać w opisie fragmentu */
     #roll { min-height: 60px; }
     #liveName { height: 64px; line-height: 64px; font-size: 44px; }
     #live svg { min-width: 1300px; }
@@ -182,7 +201,29 @@
           <button class="chip" data-h="R">Prawa</button>
           <button class="chip" data-h="L">Lewa</button>
         </div>
+        <div id="frag">
+          <div id="fragLen" title="Długość fragmentu granego w pętli">
+            <button class="chip" data-n="1">1 takt</button>
+            <button class="chip" data-n="2">2</button>
+            <button class="chip" data-n="4">4</button>
+            <button class="chip" data-n="8">8</button>
+            <button class="chip" data-n="0">Całość</button>
+          </div>
+          <button class="plain" id="fragPrev" aria-label="Poprzedni fragment">◀</button>
+          <span id="fragText"></span>
+          <button class="plain" id="fragNext" aria-label="Następny fragment">▶</button>
+        </div>
+        <div id="listenBox">
+          <button class="plain" id="listen" title="Zagraj fragment w tempie z pliku">▶ Posłuchaj</button>
+          <label class="muted" for="tempo">tempo</label>
+          <select id="tempo" aria-label="Tempo odsłuchu">
+            <option value="0.25">25%</option><option value="0.4">40%</option><option value="0.5">50%</option><option value="0.6">60%</option>
+            <option value="0.75">75%</option><option value="0.9">90%</option><option value="1">100%</option>
+          </select>
+          <label class="check" id="otherBox"><input type="checkbox" id="optOther"> słychać drugą rękę</label>
+        </div>
         <label class="check"><input type="checkbox" id="optSongNames"> nazwy dźwięków</label>
+        <label class="check" id="staffBox"><input type="checkbox" id="optStaff"> pięciolinia</label>
         <span id="scaleHelp" class="muted">cyfry na klawiszach to palce (1 = kciuk) · nuta z obwódką = przekładka</span>
         <input type="range" id="songSeek" min="0" value="0" aria-label="Miejsce w utworze">
         <span id="songInfo" class="muted"></span>
@@ -190,6 +231,8 @@
       </section>
       <div id="songName"></div>
       <div id="songTip"></div>
+      <div id="bars"></div>
+      <div id="score"></div>
       <div id="stage">
         <div id="roll"></div>
         <div id="songKeys"></div>
@@ -239,7 +282,7 @@ const MAX_TIME = 10000; // dłuższe przerwy to odejście od pianina, nie czas r
 const STORE = 'nuty-trener-v1';
 const ROLL_BEATS = 8; // tyle ćwierćnut naprzód widać nad klawiaturą
 const RESET_KEYS = [21, 108]; // A₂ i c⁵, skrajne klawisze pianina: w utworze i ćwiczeniach zaczynają od początku
-const CHORD_GAP = 0.06; // nuty bliżej siebie (w ćwierćnutach) to jeden akord
+const CHORD_GAP = 0.15; // nuty bliżej siebie (w ćwierćnutach) to jeden akord, także arpeggio; szesnastka ma 0.25
 
 // Obrysy kluczy z czcionki Noto Music (licencja OFL), bo telefony zwykle nie mają tych znaków.
 const CLEF_G = 'M25.1-64.1Q24-68.3 23.3-72.5Q22.6-76.6 22.6-81Q22.6-84.7 23.1-88Q23.6-91.4 24.6-94.2Q25.6-97.4 27.3-100.2Q29-103 30.8-104.9Q32.7-106.7 34.2-106.7Q36.1-106.7 39.4-99.9Q41.1-96.5 41.9-92.5Q42.7-88.5 42.7-83.9Q42.7-78.2 41.2-72.6Q39.7-67 36.8-62Q33.8-57 29.8-53.3L32.6-39.8Q33.8-40 34.6-40.1Q35.4-40.2 35.8-40.2Q40.6-40.2 44.5-37.4Q48.3-34.6 50.6-30.2Q52.9-25.7 52.9-20.3Q52.9-14.2 49.7-9.2Q46.6-4.3 40.2-2Q40.6-0.6 42.6 9.4Q43 11.8 43.3 13.2Q43.5 14.6 43.6 15.6Q43.7 16.6 43.7 18Q43.7 22 41.7 25.2Q39.8 28.3 36.4 30.1Q33.1 31.8 29 31.8Q24.9 31.8 21.7 30.3Q18.5 28.7 16.6 26Q14.8 23.2 14.8 19.6Q14.8 15.8 16.9 13.2Q19 10.6 23 10.6Q26.3 10.6 28.4 13.1Q30.6 15.5 30.6 18.9Q30.6 21.8 28.6 23.9Q26.6 26.1 23.4 26.1L22.6 26.1Q24.6 29.2 29.1 29.2Q34.6 29.2 37.8 25.6Q40.9 22 40.9 16.4Q40.9 15 40.6 12.8Q40.2 10.5 39.4 7.3Q38.6 4.1 38.2 2Q37.8-0.1 37.6-1Q34.9-0.2 31.2-0.2Q24.3-0.2 17.8-4.2Q11.4-8.2 7.7-14.7Q4-21.3 4-28.9Q4-36.1 7.3-42.4Q10.6-48.7 15.4-54Q20.2-59.3 25.1-64.1M27.3-66.1Q29.1-67 31.2-69.6Q33.3-72.2 35.2-75.6Q37.1-79 38.3-82.4Q39.5-85.8 39.5-88.5Q39.5-91.4 38.6-93Q37.8-94.7 35.6-94.7Q33.7-94.7 31.9-93Q30.1-91.2 28.7-88.3Q27.3-85.4 26.5-81.8Q25.7-78.2 25.7-74.4Q25.7-71.8 26.2-69.8Q26.7-67.7 27.3-66.1M37.1-3.6L31.8-30.3Q29.7-29.8 27.8-28.3Q25.8-26.7 24.7-24.5Q23.5-22.3 23.5-19.8Q23.5-17.8 24.6-15.7Q25.6-13.6 27.1-12.3Q28.2-11.4 29.2-10.9Q30.4-10.3 30.4-9.8Q30.4-9.6 29.6-9.4Q26.6-10.1 24.1-12.1Q21.7-14.1 20.3-16.9Q18.9-19.8 18.9-23Q18.9-26.4 20.3-29.6Q21.7-32.8 24.2-35.4Q26.7-37.9 29.9-39.2L27.6-51.3Q18.3-43.8 14-36.5Q9.6-29.3 9.6-22.2Q9.6-17 12.3-12.5Q15-8 19.8-5.2Q24.5-2.5 30.4-2.5Q32-2.5 33.6-2.8Q35.3-3.1 37.1-3.6M34.3-30.6L39.6-4.4Q47.4-7.8 47.4-18.2Q47.4-21.6 45.7-24.4Q43.9-27.3 41-29Q38-30.6 34.3-30.6';
@@ -253,15 +296,17 @@ function load() {
   try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch { return {}; }
 }
 function save() {
-  try { localStorage.setItem(STORE, JSON.stringify({ settings, stats, song })); } catch {}
+  try { localStorage.setItem(STORE, JSON.stringify({ settings, stats, song, progress })); } catch {}
 }
 
 const saved = load();
-const settings = Object.assign({ tab: 'train', hand: 'both', songNames: true, scaleKind: 'contrary', scaleOct: 1, octaves: 1, active: [], letter: true, row: true, hint: true, keys: true }, saved.settings);
+const settings = Object.assign({ tab: 'train', hand: 'both', songNames: true, songStaff: true, otherHand: true, tempo: 1, scaleKind: 'contrary', scaleOct: 1, octaves: 1, active: [], letter: true, row: true, hint: true, keys: true }, saved.settings);
 const rangeNotes = () => { const [lo, hi] = RANGES[settings.octaves]; return NOTES.filter(n => n.midi >= lo && n.midi <= hi); };
 settings.active = settings.active.filter(m => rangeNotes().some(n => n.midi === m));
 if (settings.active.length < 2) settings.active = rangeNotes().map(n => n.midi);
 let stats = saved.stats || {};
+// Postęp nauki każdego utworu (po nazwie pliku): długość i miejsce fragmentu oraz czyste przejścia taktów, osobno dla każdej ręki.
+const progress = saved.progress || {};
 const session = { ok: 0, err: 0, streak: 0, best: 0, timeSum: 0, timeN: 0 };
 
 let queue = [], pos = 0, shownAt = 0, missed = false, locked = false, lastNote = null;
@@ -274,6 +319,8 @@ const hit = new Set(); // trafione już dźwięki bieżącego kroku
 // Zakładki "Utwór" i "Gama" dzielą widok: cur to to, co jest właśnie grane, place pamięta miejsce w każdej z nich.
 let scale = null, cur = null, reps = 0;
 const place = {};
+// Nauka utworu: run to bieżący takt (liczy się tylko zagrany od początku), passErr to błędy w bieżącym przejściu pętli.
+let clean = 0, passErr = 0, run = {}, player = null, audio = null;
 
 function weight(m) {
   const s = stats[m];
@@ -465,6 +512,7 @@ function renderLive() {
 }
 
 function setTab(tab) {
+  stopListen();
   place[settings.tab] = [songPos, songErr];
   settings.tab = tab;
   save();
@@ -488,7 +536,8 @@ function parseMidi(buf) {
   const headLen = d.getUint32(p), division = d.getUint16(p + 8);
   p += 4 + headLen;
   if (division & 0x8000) throw new Error('ten rodzaj zapisu czasu nie jest obsługiwany');
-  const notes = [];
+  const notes = [], sigs = [];
+  let bpm = 0;
   for (let track = 0; p + 8 <= d.byteLength; track++) {
     const id = str(4), end = p + 4 + d.getUint32(p);
     p += 4;
@@ -502,7 +551,13 @@ function parseMidi(buf) {
     while (id === 'MTrk' && p < end) {
       tick += vlq();
       if (d.getUint8(p) & 0x80) status = d.getUint8(p++);
-      if (status === 0xff) p++; // typ zdarzenia meta
+      if (status === 0xff) { // meta: metrum wyznacza takty, pierwsze tempo służy do odsłuchu
+        const type = d.getUint8(p++), len = vlq();
+        if (type === 0x58) sigs.push({ t: tick / division, len: d.getUint8(p) * 4 / 2 ** d.getUint8(p + 1) });
+        if (type === 0x51 && !bpm) bpm = 60e6 / (d.getUint8(p) << 16 | d.getUint8(p + 1) << 8 | d.getUint8(p + 2));
+        p += len;
+        continue;
+      }
       if (status >= 0xf0) { const len = vlq(); p += len; continue; }
       const type = status & 0xf0, ch = status & 15, m = d.getUint8(p), vel = d.getUint8(p + 1);
       p += type === 0xc0 || type === 0xd0 ? 1 : 2;
@@ -520,10 +575,24 @@ function parseMidi(buf) {
   for (const n of piano) { const g = groups[n.g] || (groups[n.g] = { sum: 0, n: 0 }); g.sum += n.m; g.n++; }
   const ids = Object.keys(groups).sort((a, b) => groups[b].sum / groups[b].n - groups[a].sum / groups[a].n);
   const round = v => Math.round(v * 1000) / 1000;
-  return piano.map(n => ({
-    m: n.m, t: round(n.t), d: round(n.d),
-    h: (ids.length === 2 ? String(n.g) === ids[0] : n.m >= 60) ? 'R' : 'L',
-  }));
+  return {
+    notes: piano.map(n => ({
+      m: n.m, t: round(n.t), d: round(n.d),
+      h: (ids.length === 2 ? String(n.g) === ids[0] : n.m >= 60) ? 'R' : 'L',
+    })),
+    sigs, bpm: Math.round(bpm || 120),
+  };
+}
+
+// Początki taktów w ćwierćnutach; bez metrum w pliku przyjmujemy 4/4.
+function barStarts(sigs, end) {
+  const bars = [], sorted = [...sigs].sort((a, b) => a.t - b.t);
+  let len = 4, k = 0;
+  for (let t = 0; t < end - 0.01; t += len) {
+    while (k < sorted.length && sorted[k].t <= t + 0.01) len = sorted[k++].len;
+    bars.push(Math.round(t * 1000) / 1000);
+  }
+  return bars;
 }
 
 // Ćwiczenia w C-dur, tam i z powrotem; f to numer palca.
@@ -555,10 +624,14 @@ function exerciseSong(kind, octaves) {
 
 function buildSteps() {
   steps = [];
+  let bar = 0;
   for (const n of cur ? cur.notes : []) {
     if (settings.hand !== 'both' && n.h !== settings.hand) continue;
     let last = steps[steps.length - 1];
-    if (!last || n.t - last.t >= CHORD_GAP) steps.push(last = { t: n.t, notes: {}, fingers: {}, cross: {} });
+    if (!last || n.t - last.t >= CHORD_GAP) {
+      while (cur.bars && bar + 1 < cur.bars.length && cur.bars[bar + 1] <= n.t + 0.001) bar++;
+      steps.push(last = { t: n.t, bar, notes: {}, fingers: {}, cross: {} });
+    }
     last.notes[n.m] = n.h;
     last.fingers[n.m] = n.f;
     if (n.x) last.cross[n.m] = n.x;
@@ -566,11 +639,163 @@ function buildSteps() {
 }
 
 function openPiece() {
+  stopListen();
   cur = tabIs('scale') ? scale || (scale = exerciseSong(settings.scaleKind, settings.scaleOct)) : song;
+  if (cur && !cur.bars && !tabIs('scale')) Object.assign(cur, { bars: barStarts([], cur.end), bpm: 100 }); // utwór zapisany przed dodaniem taktów
   [songPos, songErr] = place[settings.tab] || [0, 0];
   hit.clear();
   buildSteps();
+  const r = loopRange();
+  if (r && (songPos < r[0] || songPos >= r[1])) songPos = r[0];
+  clean = passErr = 0;
+  startBar();
   renderSong();
+}
+
+// --- Nauka utworu: takty, fragment w pętli, mapa opanowania ---
+const songMode = () => tabIs('song') && !!cur && !!cur.bars;
+const nBars = () => cur.bars.length;
+const prog = () => progress[cur.name] || (progress[cur.name] = { len: 4, loop: null, mastery: {} });
+const mastery = () => prog().mastery[settings.hand] || (prog().mastery[settings.hand] = {});
+const curBar = () => steps[songPos] ? steps[songPos].bar : 0;
+const stepAtBar = b => { const i = steps.findIndex(s => s.bar >= b); return i < 0 ? steps.length : i; };
+
+// Kroki od pierwszego w fragmencie do pierwszego za nim, albo null bez pętli.
+function loopRange() {
+  const loop = songMode() && prog().loop;
+  return loop ? [stepAtBar(loop[0]), stepAtBar(loop[1] + 1)] : null;
+}
+
+function startBar() {
+  const s = steps[songPos];
+  run = { bar: s ? s.bar : -1, full: !!s && (songPos === 0 || steps[songPos - 1].bar !== s.bar), err: 0 };
+}
+
+// Takt zagrany od początku do końca bez błędu dostaje punkt, z błędem traci jeden.
+function finishBar(bar) {
+  if (!songMode() || run.bar !== bar || !run.full) return;
+  const m = mastery();
+  m[bar] = run.err ? Math.max(0, (m[bar] || 0) - 1) : (m[bar] || 0) + 1;
+  save();
+}
+
+function advance() {
+  const from = steps[songPos++];
+  hit.clear();
+  if (tabIs('scale')) {
+    if (songPos >= steps.length) { reps++; songPos = 1; } // ostatni dźwięk ćwiczenia jest pierwszym kolejnego powtórzenia
+    return;
+  }
+  const newBar = !steps[songPos] || steps[songPos].bar !== from.bar;
+  if (newBar) finishBar(from.bar);
+  const r = loopRange();
+  const wrap = r && songPos === r[1] && r[1] > r[0];
+  if (wrap) {
+    reps++;
+    if (!passErr) clean++;
+    passErr = 0;
+    songPos = r[0];
+  }
+  if (newBar || wrap) startBar();
+}
+
+// Fragment o wybranej długości zaczynający się w takcie a; przy "Całość" tylko przejście do taktu a.
+function setLoop(a) {
+  const p = prog();
+  a = Math.max(0, Math.min(a, nBars() - 1));
+  p.loop = p.len ? [a, Math.min(a + p.len, nBars()) - 1] : null;
+  save();
+  reps = clean = passErr = songErr = 0;
+  renderRoll();
+  seekSong(stepAtBar(a));
+}
+
+function renderBars() {
+  $('bars').hidden = $('frag').hidden = $('listenBox').hidden = !songMode();
+  if (!songMode()) return '';
+  const p = prog(), m = mastery(), now = steps[songPos] ? steps[songPos].bar : -1;
+  const has = new Set(steps.map(s => s.bar));
+  let h = '', done = 0;
+  for (let i = 0; i < nBars(); i++) {
+    const cls = [has.has(i) ? 'm' + Math.min(3, m[i] || 0) : 'na'];
+    if (has.has(i) && m[i] >= 3) done++;
+    if (p.loop && i >= p.loop[0] && i <= p.loop[1]) cls.push('in');
+    if (i === now) cls.push('now');
+    if (i && (i + 1) % 5) cls.push('minor');
+    h += `<button class="${cls.join(' ')}" data-b="${i}" title="Takt ${i + 1}: czyste przejścia ${m[i] || 0}">${i + 1}</button>`;
+  }
+  $('bars').innerHTML = h;
+  for (const b of $('fragLen').children) b.setAttribute('aria-pressed', Number(b.dataset.n) === p.len);
+  $('fragText').textContent = !p.loop ? 'cały utwór' : p.loop[0] === p.loop[1] ? `takt ${p.loop[0] + 1}` : `takty ${p.loop[0] + 1}–${p.loop[1] + 1}`;
+  return `opanowane takty: ${done} / ${has.size}`;
+}
+
+// --- Odsłuch: prosty syntezator gra fragment w tempie z pliku, nuty spadają razem z dźwiękiem ---
+function tone(out, m, at, dur, vol) {
+  const g = audio.createGain(), f = 440 * 2 ** ((m - 69) / 12);
+  g.gain.setValueAtTime(0, at);
+  g.gain.linearRampToValueAtTime(vol, at + 0.008);
+  g.gain.exponentialRampToValueAtTime(vol * 0.25, at + Math.max(0.05, dur));
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur + 0.25);
+  g.connect(out);
+  for (const [type, mul, v] of [['triangle', 1, 1], ['sine', 2, 0.3]]) {
+    const o = audio.createOscillator(), og = audio.createGain();
+    o.type = type;
+    o.frequency.value = f * mul;
+    og.gain.value = v;
+    o.connect(og).connect(g);
+    o.start(at);
+    o.stop(at + dur + 0.3);
+  }
+}
+
+function listen() {
+  if (player) return stopListen();
+  if (!songMode()) return;
+  // Bez fragmentu gra od bieżącego taktu do końca utworu.
+  const loop = prog().loop, a = loop ? loop[0] : curBar(), b = loop ? loop[1] : nBars() - 1;
+  const t0 = cur.bars[a], t1 = b + 1 < nBars() ? cur.bars[b + 1] : cur.end + 0.5;
+  audio = audio || new AudioContext();
+  audio.resume();
+  const out = audio.createGain();
+  out.connect(audio.destination);
+  const spb = 60 / (cur.bpm * settings.tempo), start = audio.currentTime + 0.15;
+  const notes = cur.notes.filter(n => n.t >= t0 - 0.001 && n.t < t1 - 0.001);
+  // Ćwiczona ręka gra głośniej od drugiej, a drugą można wyciszyć.
+  const mine = n => settings.hand === 'both' || n.h === settings.hand;
+  for (const n of notes) {
+    if (mine(n) || settings.otherHand) tone(out, n.m, start + (n.t - t0) * spb, Math.min(n.d, t1 - n.t) * spb, mine(n) ? 0.15 : 0.06);
+  }
+  player = { out, sounding: new Map(), on: '', t: t0 };
+  $('listen').textContent = '■ Stop';
+  $('rollNotes').style.transition = 'none';
+  const frame = () => {
+    if (!player) return;
+    const t = t0 + (audio.currentTime - start) / spb;
+    if (t >= t1) return stopListen();
+    player.t = Math.max(t, t0);
+    $('rollNotes').style.transform = `translateY(${ROLL_BEATS + Math.max(t, t0)}px)`;
+    const now = notes.filter(n => n.t <= t && t < n.t + n.d);
+    const on = now.map(n => n.m).join();
+    if (on !== player.on) {
+      player.on = on;
+      player.sounding = new Map(now.map(n => [n.m, n.h]));
+      $('songName').textContent = now.filter(mine).map(n => n.m).sort((a, b) => a - b).map(liveName).join('  ');
+      renderSongKeys();
+      renderScore();
+    }
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
+
+function stopListen() {
+  if (!player) return;
+  player.out.disconnect();
+  player = null;
+  $('listen').textContent = '▶ Posłuchaj';
+  updateSong(); // nuty wracają od razu na miejsce, potem znów przesuwają się płynnie
+  requestAnimationFrame(() => { if ($('rollNotes')) $('rollNotes').style.transition = ''; });
 }
 
 // Lewa krawędź paska nuty (szerokość BAR) nad każdym klawiszem i łączna szerokość klawiatury.
@@ -603,6 +828,13 @@ function renderRoll() {
     const x = xs[m] - (36 - BAR) / 2;
     lanes += `<line x1="${x}" x2="${x}" y1="0" y2="${ROLL_BEATS}" stroke="#d9d5cb" vector-effect="non-scaling-stroke"/>`;
   }
+  // Kreski taktowe jadą razem z nutami; granice fragmentu w pętli są niebieskie.
+  const loop = songMode() && prog().loop;
+  (cur.bars || []).forEach((t, i) => {
+    const edge = loop && (i === loop[0] || i === loop[1] + 1);
+    bars += `<line x1="0" x2="${width}" y1="${-t}" y2="${-t}" stroke="${edge ? 'var(--hint)' : '#c9c4b8'}" stroke-width="${edge ? 3 : 1}" vector-effect="non-scaling-stroke"/>`;
+  });
+  if (loop && loop[1] + 1 >= nBars()) bars += `<line x1="0" x2="${width}" y1="${-cur.end}" y2="${-cur.end}" stroke="var(--hint)" stroke-width="3" vector-effect="non-scaling-stroke"/>`;
   for (const n of cur.notes) {
     const h = Math.max(0.12, n.d - 0.05); // przerwa oddziela powtórzony dźwięk
     const off = settings.hand !== 'both' && n.h !== settings.hand;
@@ -613,8 +845,9 @@ function renderRoll() {
 }
 
 function renderSongKeys() {
-  const step = steps[songPos];
-  const fill = (m, base) => pressed.get(m) === 'ok' ? 'var(--ok)' : pressed.get(m) === 'err' ? 'var(--err)'
+  const step = player ? null : steps[songPos];
+  const color = h => `var(--${h === 'R' ? 'hint' : 'lh'})`;
+  const fill = player ? (m, base) => (player.sounding.has(m) ? color(player.sounding.get(m)) : base) : (m, base) => pressed.get(m) === 'ok' ? 'var(--ok)' : pressed.get(m) === 'err' ? 'var(--err)'
     : step && step.notes[m] && !hit.has(m) ? `var(--${step.notes[m] === 'R' ? 'hint' : 'lh'})` : base;
   const [lo, hi] = songRange(), [xs] = barXs(lo, hi);
   let fingers = '';
@@ -626,8 +859,13 @@ function renderSongKeys() {
 
 function updateSong() {
   const step = steps[songPos];
-  const count = tabIs('scale') ? `powtórzenia: ${reps} · ` : '';
-  $('songInfo').textContent = !cur ? '' : (step ? `${songPos + 1} / ${steps.length}` : 'Koniec utworu') + ` · ${count}błędy: ${songErr}`;
+  const learned = renderBars();
+  if (!cur) $('songInfo').textContent = '';
+  else if (!songMode()) $('songInfo').textContent = (step ? `${songPos + 1} / ${steps.length}` : 'Koniec') + ` · powtórzenia: ${reps} · błędy: ${songErr}`;
+  else {
+    const loop = prog().loop ? `powtórzenia: ${reps} (czyste: ${clean}) · ` : '';
+    $('songInfo').textContent = (step ? `takt ${step.bar + 1} / ${nBars()}` : 'Koniec utworu') + ` · ${loop}błędy: ${songErr} · ${learned}`;
+  }
   $('songSeek').max = Math.max(0, steps.length - 1);
   $('songSeek').value = songPos;
   $('songName').hidden = !settings.songNames;
@@ -637,13 +875,167 @@ function updateSong() {
     const what = step.cross[m] === 'under' ? 'podłóż kciuk' : `przełóż ${step.fingers[m]}. palec nad kciukiem`;
     return `<span style="color:var(--${right ? 'hint' : 'lh'})">${right ? 'Prawa' : 'Lewa'}: ${what}</span>`;
   }).join(' &nbsp;·&nbsp; ');
-  if ($('rollNotes')) $('rollNotes').style.transform = `translateY(${ROLL_BEATS + (step ? step.t : cur.end)}px)`;
+  if ($('rollNotes') && !player) $('rollNotes').style.transform = `translateY(${ROLL_BEATS + (step ? step.t : cur.end)}px)`;
   renderSongKeys();
+  renderScore();
+}
+
+// --- Pięciolinia: bieżący i następny takt w zapisie nutowym, tylko dla wybranej ręki ---
+// Znaki przykluczowe zgaduje z utworu: tonacja, w której najmniej dźwięków wypada poza gamę.
+function guessKey(notes) {
+  let best = 0, bestMiss = Infinity;
+  for (const sf of [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6]) { // przy remisie wygrywa mniej znaków
+    const tonic = ((sf * 7) % 12 + 12) % 12, scaleSet = [0, 2, 4, 5, 7, 9, 11].map(x => (x + tonic) % 12);
+    const miss = notes.filter(n => !scaleSet.includes(n.m % 12)).length;
+    if (miss < bestMiss) { best = sf; bestMiss = miss; }
+  }
+  return best;
+}
+const SHARP_ORDER = [3, 0, 4, 1, 5, 2, 6], FLAT_ORDER = [6, 2, 5, 1, 4, 0, 3]; // litery c=0 … h=6
+const SHARP_STEPS = [10, 7, 11, 8, 5, 9, 6], FLAT_STEPS = [6, 9, 5, 8, 4, 7, 3]; // miejsca znaków w kluczu wiolinowym
+// Pisownia dźwięku: [litera, znak] z krzyżykami albo bemolami, zależnie od tonacji.
+const SPELL = {
+  1: [[0, 0], [0, 1], [1, 0], [1, 1], [2, 0], [3, 0], [3, 1], [4, 0], [4, 1], [5, 0], [5, 1], [6, 0]],
+  '-1': [[0, 0], [1, -1], [1, 0], [2, -1], [2, 0], [3, 0], [4, -1], [4, 0], [5, -1], [5, 0], [6, -1], [6, 0]],
+};
+const NOTE_VALUES = [4, 3, 2, 1.5, 1, 0.75, 0.5, 0.375, 0.25, 0.125];
+const quantize = d => NOTE_VALUES.reduce((a, q) => Math.abs(Math.log(d / q)) < Math.abs(Math.log(d / a)) ? q : a);
+
+function accSvg(kind, x, y, c) {
+  const L = (x1, y1, x2, y2, w) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${w}"/>`;
+  if (kind === 1) return L(x - 3, y - 15, x - 3, y + 17, 1.6) + L(x + 3, y - 17, x + 3, y + 15, 1.6) + L(x - 7, y - 3, x + 7, y - 7, 3.5) + L(x - 7, y + 7, x + 7, y + 3, 3.5);
+  if (kind === -1) return L(x - 4, y - 22, x - 4, y + 7, 1.6) + `<path d="M${x - 4} ${y + 7} C${x + 10} ${y - 1} ${x + 8} ${y - 9} ${x - 4} ${y - 3}" fill="none" stroke="${c}" stroke-width="2.4"/>`;
+  return L(x - 4, y - 16, x - 4, y + 6, 1.6) + L(x + 4, y - 6, x + 4, y + 16, 1.6) + L(x - 4, y - 1, x + 4, y - 4, 3.5) + L(x - 4, y + 7, x + 4, y + 4, 3.5);
+}
+
+function renderScore() {
+  const box = $('score');
+  $('staffBox').hidden = !songMode();
+  box.hidden = !songMode() || !settings.songStaff;
+  if (box.hidden) return;
+  const sf = cur.key ?? (cur.key = guessKey(cur.notes));
+  const keyAcc = [0, 0, 0, 0, 0, 0, 0];
+  for (let i = 0; i < Math.abs(sf); i++) keyAcc[(sf > 0 ? SHARP_ORDER : FLAT_ORDER)[i]] = Math.sign(sf);
+  const grand = settings.hand === 'both';
+  // Każda nuta na pięciolinii swojej ręki; w obu rękach skrajnie daleka nuta przechodzi na drugą (np. lewa ręka nad prawą).
+  const place = n => {
+    const [letter, acc] = SPELL[sf < 0 ? -1 : 1][n.m % 12], step = (Math.floor(n.m / 12) - 5) * 7 + letter;
+    const staff = !grand ? (settings.hand === 'R' ? 'T' : 'B') : n.h === 'R' ? (step < -6 ? 'B' : 'T') : (step > 5 ? 'T' : 'B');
+    // Nuta dalej niż trzy linie dodane idzie o oktawę bliżej, ze znakiem 8va / 8vb.
+    const p = { n, letter, acc, step, staff, oct: 0 };
+    while (rel(p) < -70) { p.step -= 7; p.oct++; }
+    while (rel(p) > 150) { p.step += 7; p.oct--; }
+    return p;
+  };
+  // Odległość nuty od górnej linii jej pięciolinii; zakres liczony z całego utworu, żeby skala nie skakała.
+  const rel = p => p.staff === 'T' ? 80 - (p.step - 2) * 10 : -(p.step + 2) * 10;
+  const shown = cur.notes.filter(n => grand || n.h === settings.hand).map(place);
+  const staves = grand ? ['T', 'B'] : [settings.hand === 'R' ? 'T' : 'B'];
+  const ext = {};
+  for (const st of staves) {
+    const r = shown.filter(p => p.staff === st).map(rel);
+    ext[st] = [Math.min(-30, ...r) - (st === staves[0] ? 30 : 15), Math.max(110, ...r) + 20];
+  }
+  const top = {};
+  let yy = 0;
+  for (const st of staves) { top[st] = yy - ext[st][0]; yy = top[st] + ext[st][1]; }
+  // Szerokość rysunku w proporcjach ramki, żeby nuty zajmowały całe miejsce.
+  const H = yy, W = Math.round(Math.max(700, Math.min(2600, H * box.clientWidth / Math.max(1, box.clientHeight))));
+  const yOf = p => top[p.staff] + rel(p);
+
+  const step = steps[songPos], nowT = player ? player.t : step ? step.t : cur.end;
+  let cb = 0;
+  while (cb + 1 < nBars() && cur.bars[cb + 1] <= nowT + 0.001) cb++;
+  const w0 = cur.bars[cb], mid = cb + 1 < nBars() ? cur.bars[cb + 1] : null;
+  const w1 = cb + 2 < nBars() ? cur.bars[cb + 2] : cur.end + 0.01;
+  const win = shown.filter(p => p.n.t >= w0 - 0.001 && p.n.t < w1 - 0.001).sort((a, b) => a.n.t - b.n.t || a.n.m - b.n.m);
+  const groups = [];
+  for (const p of win) {
+    const g = groups[groups.length - 1];
+    if (g && p.n.t - g.t < CHORD_GAP) g.ps.push(p); else groups.push({ t: p.n.t, ps: [p] });
+  }
+  // Odstępy rosną z czasem trwania, ale każda nuta ma miejsce na główkę i znak; potem całość rozciąga się na szerokość.
+  const events = groups.map(g => ({ t: g.t, g }));
+  if (mid !== null && mid < w1) events.push({ t: mid, bar: true });
+  events.sort((a, b) => a.t - b.t || (a.bar ? -1 : 1));
+  let pos = 0, prevT = w0, afterBar = true;
+  for (const e of events) {
+    pos += (e.bar ? 18 : afterBar ? 24 : 34) + 46 * (e.t - prevT);
+    e.pos = pos;
+    prevT = e.t;
+    afterBar = !!e.bar;
+  }
+  const total = pos + 30 + 46 * (w1 - prevT);
+  const x0 = 100 + Math.abs(sf) * 16, scaleX = (W - 30 - x0) / total;
+
+  const ink = 'var(--ink)', grey = '#a3a3aa';
+  let s = '';
+  for (const st of staves) for (let i = 0; i < 5; i++) s += `<line x1="20" x2="${W - 20}" y1="${top[st] + i * 20}" y2="${top[st] + i * 20}" stroke="${ink}" stroke-width="1.5"/>`;
+  const first = top[staves[0]], last = top[staves[staves.length - 1]] + 80;
+  s += `<line x1="${W - 20}" x2="${W - 20}" y1="${first}" y2="${last}" stroke="${ink}" stroke-width="1.5"/>`;
+  if (grand) s += `<line x1="20" x2="20" y1="${first}" y2="${last}" stroke="${ink}" stroke-width="1.5"/>`;
+  for (const st of staves) {
+    s += st === 'T' ? `<path transform="translate(34 ${top.T + 60})" fill="${ink}" d="${CLEF_G}"/>` : `<path transform="translate(34 ${top.B + 72})" fill="${ink}" d="${CLEF_F}"/>`;
+    for (let i = 0; i < Math.abs(sf); i++) {
+      const kstep = (sf > 0 ? SHARP_STEPS : FLAT_STEPS)[i] - (st === 'B' ? 14 : 0);
+      s += accSvg(Math.sign(sf), 100 + i * 16, yOf({ staff: st, step: kstep }), ink);
+    }
+  }
+  const label = (x, n) => `<text x="${x}" y="${first - 8}" font-size="15" fill="${grey}" font-family="system-ui, sans-serif">${n}</text>`;
+  s += label(x0, cb + 1);
+  const handColor = h => `var(--${h === 'R' ? 'hint' : 'lh'})`;
+  const colorOf = n => {
+    if (player) return n.t <= nowT + 0.001 && nowT < n.t + n.d ? handColor(n.h) : n.t < nowT ? grey : ink;
+    if (step && n.t >= step.t - 0.001 && n.t - step.t < CHORD_GAP && step.notes[n.m]) return hit.has(n.m) ? 'var(--ok)' : handColor(n.h);
+    return n.t < nowT ? grey : ink;
+  };
+  let accState = {};
+  for (const e of events) {
+    const x = x0 + e.pos * scaleX;
+    if (e.bar) {
+      s += `<line x1="${x}" x2="${x}" y1="${first}" y2="${last}" stroke="${ink}" stroke-width="1.5"/>` + label(x + 6, cb + 2);
+      accState = {};
+      continue;
+    }
+    for (const st of staves) {
+      const ps = e.g.ps.filter(p => p.staff === st).sort((a, b) => a.step - b.step);
+      if (!ps.length) continue;
+      const barEnd = mid !== null && e.t < mid ? mid : w1;
+      const qd = Math.max(...ps.map(p => quantize(Math.max(0.1, Math.min(p.n.d, barEnd - p.n.t)))));
+      const ys = ps.map(yOf), up = (ys.reduce((a, b) => a + b) / ys.length) > top[st] + 40;
+      const color = colorOf(ps[ps.length - 1].n);
+      let accN = 0;
+      ps.forEach((p, i) => {
+        const y = ys[i], c = colorOf(p.n);
+        const nx = i && p.step - ps[i - 1].step === 1 && !ps[i - 1].shift ? (p.shift = true, x + (up ? 22 : -22)) : x;
+        for (let ly = top[st] + 100; ly <= y; ly += 20) s += `<line x1="${nx - 19}" x2="${nx + 19}" y1="${ly}" y2="${ly}" stroke="${ink}" stroke-width="1.5"/>`;
+        for (let ly = top[st] - 20; ly >= y; ly -= 20) s += `<line x1="${nx - 19}" x2="${nx + 19}" y1="${ly}" y2="${ly}" stroke="${ink}" stroke-width="1.5"/>`;
+        // Znak przy nucie, gdy różni się od przykluczowego albo od wcześniejszego w tym takcie.
+        const key = st + p.step, was = key in accState ? accState[key] : keyAcc[p.letter];
+        if (p.acc !== was) { s += accSvg(p.acc, x - 24 - 14 * (accN++ % 2), y, c); accState[key] = p.acc; }
+        s += qd >= 2
+          ? `<ellipse cx="${nx}" cy="${y}" rx="11" ry="7.5" fill="none" stroke="${c}" stroke-width="3" transform="rotate(-20 ${nx} ${y})"/>`
+          : `<ellipse cx="${nx}" cy="${y}" rx="12.5" ry="8.5" fill="${c}" transform="rotate(-20 ${nx} ${y})"/>`;
+        if (p.oct) s += `<text x="${nx}" y="${p.oct > 0 ? Math.min(y - 16, top[st] - 8) : Math.max(y + 28, top[st] + 100)}" text-anchor="middle" font-size="15" font-style="italic" font-weight="700" fill="${c}" font-family="serif">${['15mb', '8vb', '', '8va', '15ma'][p.oct + 2]}</text>`;
+        if ([3, 1.5, 0.75, 0.375].includes(qd)) s += `<circle cx="${x + 22 + (up && ps.some(q => q.shift) ? 22 : 0)}" cy="${(y - top[st]) % 20 === 0 ? y - 6 : y}" r="3" fill="${c}"/>`;
+      });
+      if (qd >= 4) continue; // cała nuta nie ma laski
+      const sx = up ? x + 11.3 : x - 11.3, y1 = up ? ys[ys.length - 1] - 62 : ys[0] + 62, y0 = up ? ys[0] : ys[ys.length - 1];
+      s += `<line x1="${sx}" x2="${sx}" y1="${y0}" y2="${y1}" stroke="${color}" stroke-width="2.2"/>`;
+      const flags = qd < 0.5 ? 2 : qd < 1 ? 1 : 0;
+      for (let f = 0; f < flags; f++) {
+        const fy = y1 + (up ? 1 : -1) * f * 13;
+        s += `<path d="M${sx} ${fy} q 4 ${up ? 12 : -12} 14 ${up ? 20 : -20} q 6 8 2 ${up ? 22 : -22}" fill="none" stroke="${color}" stroke-width="2.6"/>`;
+      }
+    }
+  }
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Nuty bieżącego i następnego taktu">${s}</svg>`;
 }
 
 function renderSong() {
   $('songTitle').textContent = cur ? cur.name : '';
   for (const b of $('hands').children) b.setAttribute('aria-pressed', b.dataset.h === settings.hand);
+  $('otherBox').hidden = settings.hand === 'both';
   for (const b of $('scaleKind').children) b.setAttribute('aria-pressed', b.dataset.k === settings.scaleKind);
   for (const b of $('scaleOct').children) b.setAttribute('aria-pressed', Number(b.dataset.o) === settings.scaleOct);
   renderRoll();
@@ -651,11 +1043,16 @@ function renderSong() {
 }
 
 function restartPiece() {
-  songErr = reps = 0;
-  seekSong(0);
+  songErr = reps = clean = passErr = 0;
+  const r = loopRange();
+  seekSong(r ? r[0] : 0);
 }
 
 function songNote(m) {
+  if (player) {
+    if (mic) return; // mikrofon słyszy odsłuch, a nie grającego
+    stopListen();
+  }
   const step = steps[songPos];
   if (RESET_KEYS.includes(m) && !(step && step.notes[m])) return restartPiece(); // chyba że utwór właśnie chce tego dźwięku
   if (!step) return;
@@ -663,27 +1060,30 @@ function songNote(m) {
     hit.add(m);
     if (mic) for (const k of Object.keys(step.notes)) hit.add(Number(k)); // mikrofon nie rozróżni dźwięków akordu
     pressed.set(m, 'ok');
-    if (Object.keys(step.notes).every(k => hit.has(Number(k)))) { songPos++; hit.clear(); }
-    // Ćwiczenie gra się w kółko: ostatni dźwięk jest zarazem pierwszym kolejnego powtórzenia.
-    if (tabIs('scale') && songPos >= steps.length) { reps++; songPos = 1; }
+    if (Object.keys(step.notes).every(k => hit.has(Number(k)))) advance();
   } else {
     pressed.set(m, 'err');
     songErr++;
+    run.err++;
+    passErr++;
   }
   updateSong();
 }
 
 function seekSong(i) {
+  stopListen();
   songPos = i;
   hit.clear();
+  startBar();
   updateSong();
 }
 
 async function loadSong(file) {
   if (!file) return;
   try {
-    const notes = parseMidi(await file.arrayBuffer());
-    song = { name: file.name.replace(/\.midi?$/i, ''), notes, end: Math.max(...notes.map(n => n.t + n.d)) };
+    const { notes, sigs, bpm } = parseMidi(await file.arrayBuffer());
+    const end = Math.max(...notes.map(n => n.t + n.d));
+    song = { name: file.name.replace(/\.midi?$/i, ''), notes, end, bars: barStarts(sigs, end), bpm };
   } catch (e) {
     $('songInfo').textContent = 'Nie udało się wczytać: ' + (e instanceof RangeError ? 'plik jest uszkodzony' : e.message);
     return;
@@ -826,8 +1226,36 @@ $('hands').addEventListener('click', e => {
   const i = steps.findIndex(s => s.t > t - CHORD_GAP);
   songPos = i < 0 ? steps.length : i;
   hit.clear();
+  startBar();
   renderSong();
 });
+$('fragLen').addEventListener('click', e => {
+  if (e.target.dataset.n === undefined || !songMode()) return;
+  const p = prog();
+  p.len = Number(e.target.dataset.n);
+  if (p.len) return setLoop(p.loop ? p.loop[0] : curBar());
+  p.loop = null;
+  save();
+  renderSong();
+});
+for (const [id, dir] of [['fragPrev', -1], ['fragNext', 1]]) $(id).addEventListener('click', () => {
+  if (!songMode()) return;
+  const p = prog();
+  setLoop((p.loop ? p.loop[0] : curBar()) + dir * (p.len || 4));
+});
+$('bars').addEventListener('click', e => { if (e.target.dataset.b !== undefined) setLoop(Number(e.target.dataset.b)); });
+$('listen').addEventListener('click', listen);
+$('tempo').value = String(settings.tempo);
+$('tempo').addEventListener('change', e => {
+  settings.tempo = Number(e.target.value);
+  save();
+  if (player) { stopListen(); listen(); } // nowe tempo słychać od razu
+});
+$('optOther').checked = settings.otherHand;
+$('optOther').addEventListener('change', e => { settings.otherHand = e.target.checked; save(); if (player) { stopListen(); listen(); } });
+$('optStaff').checked = settings.songStaff;
+$('optStaff').addEventListener('change', e => { settings.songStaff = e.target.checked; save(); renderScore(); });
+window.addEventListener('resize', () => { if (songMode()) renderScore(); });
 $('optSongNames').checked = settings.songNames;
 $('optSongNames').addEventListener('change', e => { settings.songNames = e.target.checked; save(); updateSong(); });
 $('songKeys').addEventListener('pointerdown', e => {
